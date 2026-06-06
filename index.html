@@ -870,42 +870,34 @@ function jsonpFetch(url){
 }
 
 async function fetchSheet(name){
-  try{
-    const r = await apicall('GET',{action:'getAll',sheet:name});
-    if(!r){ throw new Error('No response for sheet: '+name); }
-    if(!r.ok){ throw new Error((r.error||'Unknown error')+' (sheet: '+name+')'); }
-    return r.data||[];
-  } catch(e){
-    console.error('fetchSheet failed for', name, e);
-    throw e;
-  }
+  // Legacy single-sheet fetch (used during connect verification only)
+  const r = await apicall('GET',{action:'getAll',sheet:name});
+  if(!r || !r.ok) throw new Error((r&&r.error)||'Failed to load '+name);
+  return r.data||[];
 }
 
 async function fetchAll(){
   try{
-    toast('Loading your data…');
-    // Fetch sequentially to avoid overwhelming Apps Script
-    const accounts     = await fetchSheet('Accounts');
-    const transactions = await fetchSheet('Transactions');
-    const budgets      = await fetchSheet('Budgets');
-    const investments  = await fetchSheet('Investments');
-    const goals        = await fetchSheet('Goals');
+    toast('Syncing…');
+    // ── Single request fetches ALL sheets at once ──
+    const r = await apicall('GET',{action:'getAllSheets'});
+    if(!r || !r.ok) throw new Error((r&&r.error)||'Sync failed');
 
+    const d = r.data;
     cache = {
-      accounts:    accounts.map(pn(['openingBalance','currentBalance','limit'])),
-      transactions:transactions.map(pn(['amount'])),
-      budgets:     budgets.map(pn(['budgetAmount'])),
-      investments: investments.map(pn(['amount','current','totalInvested'])),
-      goals:       goals.map(pn(['target','saved']))
+      accounts:    (d.Accounts||[]).map(pn(['openingBalance','currentBalance','limit'])),
+      transactions:(d.Transactions||[]).map(pn(['amount'])),
+      budgets:     (d.Budgets||[]).map(pn(['budgetAmount'])),
+      investments: (d.Investments||[]).map(pn(['amount','current','totalInvested'])),
+      goals:       (d.Goals||[]).map(pn(['target','saved']))
     };
     saveCache();
     renderAll();
-    toast('✓ ' + accounts.length + ' accounts, ' + transactions.length + ' transactions loaded');
+    toast('✓ Synced — ' + cache.accounts.length + ' accounts · ' + cache.transactions.length + ' transactions');
   } catch(e){
     console.error('fetchAll error:', e);
-    toast('⚠ Sync failed: ' + e.message);
-    // Still render with cached data
-    renderAll();
+    toast('⚠ ' + e.message);
+    renderAll(); // show cached data
   }
 }
 
