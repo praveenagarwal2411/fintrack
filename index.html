@@ -151,7 +151,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .pc-expense{background:linear-gradient(135deg,#450a0a,#7f1d1d)}.pc-expense::after{background:#ef4444}
 .pc-invest{background:linear-gradient(135deg,#1e3a8a,#1e40af)}.pc-invest::after{background:#3b82f6}
 .pc-savings{background:linear-gradient(135deg,#1c1917,#292524)}.pc-savings::after{background:#f59e0b}
-.pc-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.pc-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}.pulse-card{transition:transform .15s,opacity .15s}.pulse-card:hover{transform:translateY(-2px);opacity:.92}.pulse-card:active{transform:scale(.97)}
 .pc-val{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px}
 .pc-sub{font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px}
 .pc-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:28px;opacity:.25}
@@ -160,7 +160,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .acc-strip-header{display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px}
 .acc-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;margin:0 -16px;padding:0 16px 8px}
 .acc-strip::-webkit-scrollbar{display:none}
-.acc-chip{flex-shrink:0;width:155px;border-radius:14px;padding:14px;position:relative;overflow:hidden;cursor:default}
+.acc-chip{flex-shrink:0;width:155px;border-radius:14px;padding:14px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s}.acc-chip:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.25)}.acc-chip:active{transform:scale(.97)}
 .acc-chip-name{font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acc-chip-type{font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:10px}
 .acc-chip-bal{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.5px}
@@ -1492,28 +1492,28 @@ function renderDash(){
   // ── PULSE (month metrics) ──
   document.getElementById('dash-pulse').innerHTML=`
     <div class="pulse-row">
-      <div class="pulse-card pc-income">
+      <div class="pulse-card pc-income" onclick="drillTxnType('income')" style="cursor:pointer">
         <div class="pc-lbl">Income</div>
         <div class="pc-val">${fmt(tot.income)}</div>
-        <div class="pc-sub">this month</div>
+        <div class="pc-sub">this month · tap to view</div>
         <div class="pc-icon">💰</div>
       </div>
-      <div class="pulse-card pc-expense">
+      <div class="pulse-card pc-expense" onclick="drillTxnType('expense')" style="cursor:pointer">
         <div class="pc-lbl">Expenses</div>
         <div class="pc-val">${fmt(tot.expense)}</div>
-        <div class="pc-sub">${tot.income>0?Math.round(tot.expense/tot.income*100)+'% of income':''}</div>
+        <div class="pc-sub">${tot.income>0?Math.round(tot.expense/tot.income*100)+'% of income · tap':''}</div>
         <div class="pc-icon">🛒</div>
       </div>
-      <div class="pulse-card pc-invest">
+      <div class="pulse-card pc-invest" onclick="showPage('invest',document.querySelector('.ni:nth-child(4)'))" style="cursor:pointer">
         <div class="pc-lbl">Invested</div>
         <div class="pc-val">${fmt(tot.invested)}</div>
-        <div class="pc-sub">${cache.investments.filter(i=>i.freq==='monthly').length} active SIPs</div>
+        <div class="pc-sub">${cache.investments.filter(i=>i.freq==='monthly').length} active SIPs · tap to view</div>
         <div class="pc-icon">📈</div>
       </div>
-      <div class="pulse-card pc-savings">
+      <div class="pulse-card pc-savings" onclick="drillTxnType('all')" style="cursor:pointer">
         <div class="pc-lbl">Savings rate</div>
         <div class="pc-val">${savingsRate}%</div>
-        <div class="pc-sub">${fmt(Math.max(0,netSaved))} saved</div>
+        <div class="pc-sub">${fmt(Math.max(0,netSaved))} saved · tap for all txns</div>
         <div class="pc-icon">🎯</div>
       </div>
     </div>`;
@@ -1526,12 +1526,12 @@ function renderDash(){
         const lim    = parseFloat(a.limit)||0;
         const usedPct= isLiab&&lim>0?Math.min(100,Math.round(Math.abs(bal)/lim*100)):0;
         const bg     = a.color||'#10b981';
-        return `<div class="acc-chip" style="background:linear-gradient(135deg,${bg}dd,${bg}99)">
+        return `<div class="acc-chip" style="background:linear-gradient(135deg,${bg}dd,${bg}99)" onclick="drillAccount('${a.id}')" title="View ${a.name} transactions">
           <div class="acc-chip-icon">${ACCT_ICONS[a.type]||'🏦'}</div>
           <div class="acc-chip-name">${a.name}</div>
           <div class="acc-chip-type">${a.type.charAt(0).toUpperCase()+a.type.slice(1)}</div>
           <div class="acc-chip-bal">${fmt(Math.abs(bal))}</div>
-          <div class="acc-chip-lbl">${isLiab?'outstanding':'available'}</div>
+          <div class="acc-chip-lbl">${isLiab?'outstanding':'available'} · tap to view</div>
           ${isLiab&&lim>0?`<div class="acc-chip-bar"><div class="acc-chip-fill" style="width:${usedPct}%"></div></div>`:''}
         </div>`;
       }).join('')
@@ -1567,7 +1567,7 @@ function renderDash(){
   document.getElementById('dash-recent-section').innerHTML=`
     <div class="recent-header">
       <span class="st">Recent transactions</span>
-      <span style="font-size:12px;color:var(--tx2)">${recent.length} of ${cache.transactions.length}</span>
+      <span style="font-size:12px;color:var(--g);font-weight:600;cursor:pointer" onclick="drillTxnType('all')">View all ${cache.transactions.length} →</span>
     </div>
     <div>${recentHtml}</div>`;
 }
@@ -1752,6 +1752,21 @@ function renderTxns(){
     ? '<div class="txn-list">'+rows.map(t=>txnRow(t,true)).join('')+'</div>'
     : '<div class="empty"><div class="empty-icon">📋</div><p>No transactions match this filter.</p></div>';
 }
+// ── Drill-down from dashboard ──
+function drillAccount(accId){
+  txnFilterType = 'all';
+  txnFilterAcc  = accId;
+  const btn = document.querySelector('.ni:nth-child(3)');
+  showPage('txns', btn);
+}
+
+function drillTxnType(type){
+  txnFilterType = type;
+  txnFilterAcc  = 'all';
+  const btn = document.querySelector('.ni:nth-child(3)');
+  showPage('txns', btn);
+}
+
 function setTxnFilter(key,val){
   if(key==='type') txnFilterType=val; else txnFilterAcc=val;
   renderTxns();
