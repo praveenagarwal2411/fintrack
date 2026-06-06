@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FinTrack — Bulk Importer</title>
+<style>
+:root{
+  --g:#10b981;--g2:#059669;--gbg:#d1fae5;--gdk:#065f46;
+  --r:#ef4444;--rbg:#fee2e2;
+  --b:#3b82f6;--bbg:#dbeafe;--bdk:#1e40af;
+  --a:#f59e0b;--abg:#fef3c7;
+  --bg:#ffffff;--bg2:#f8fafc;--bg3:#f1f5f9;
+  --tx:#0f172a;--tx2:#64748b;--tx3:#94a3b8;
+  --br:rgba(15,23,42,0.08);--br2:rgba(15,23,42,0.16);
+  --rad:10px;--radl:14px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#0f172a;--bg2:#1e293b;--bg3:#334155;--tx:#f1f5f9;--tx2:#94a3b8;--tx3:#475569;--br:rgba(255,255,255,0.07);--br2:rgba(255,255,255,0.14);--gbg:#064e3b;--gdk:#6ee7b7;}
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;padding:0 0 60px}
+
+.top-bar{background:var(--bg);border-bottom:0.5px solid var(--br);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.top-bar h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.top-bar span{font-size:12px;color:var(--tx2);background:var(--bg3);padding:3px 10px;border-radius:20px}
+
+.container{max-width:900px;margin:0 auto;padding:24px 20px}
+
+/* Steps */
+.steps{display:flex;gap:0;margin-bottom:28px;border-radius:var(--radl);overflow:hidden;border:0.5px solid var(--br)}
+.step-tab{flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:600;color:var(--tx3);background:var(--bg2);cursor:pointer;border-right:0.5px solid var(--br);transition:all .2s;position:relative}
+.step-tab:last-child{border-right:none}
+.step-tab.active{background:var(--g);color:#fff}
+.step-tab.done{background:var(--gbg);color:var(--gdk)}
+.step-tab .step-num{display:block;font-size:18px;margin-bottom:2px}
+.step-tab .step-lbl{font-size:11px}
+
+.panel{display:none}.panel.active{display:block}
+
+/* Cards */
+.card{background:var(--bg);border:0.5px solid var(--br);border-radius:var(--radl);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h3{font-size:15px;font-weight:700;margin-bottom:4px}
+.card .sub{font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:16px}
+
+/* Bank selector */
+.bank-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.bank-btn{padding:12px 8px;border:1.5px solid var(--br2);border-radius:var(--rad);background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--tx2);text-align:center;transition:all .15s;line-height:1.5}
+.bank-btn:hover{border-color:var(--g);color:var(--g)}
+.bank-btn.sel{background:var(--gbg);border-color:var(--g);color:var(--gdk)}
+.bank-icon{font-size:22px;display:block;margin-bottom:4px}
+
+/* Textarea */
+.paste-area{width:100%;min-height:180px;padding:13px 14px;font-size:13px;font-family:'SF Mono','Fira Code',monospace;border:1.5px solid var(--br2);border-radius:var(--rad);background:var(--bg2);color:var(--tx);resize:vertical;outline:none;line-height:1.6}
+.paste-area:focus{border-color:var(--g)}
+.paste-area::placeholder{color:var(--tx3)}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--bg3);border-bottom:0.5px solid var(--br2)}
+th{padding:9px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+td{padding:9px 10px;border-bottom:0.5px solid var(--br);vertical-align:middle}
+tbody tr:hover{background:var(--bg2)}
+td select,td input{width:100%;padding:5px 8px;font-size:12px;border:1px solid var(--br2);border-radius:6px;background:var(--bg);color:var(--tx);outline:none}
+td select:focus,td input:focus{border-color:var(--g)}
+
+/* Mapping row */
+.map-row{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--br)}
+.map-row:last-child{border-bottom:none}
+.map-label{font-size:13px;font-weight:500}
+.map-arrow{text-align:center;color:var(--tx3);font-size:16px}
+.map-row select{width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--br2);border-radius:var(--rad);background:var(--bg2);color:var(--tx);outline:none}
+.map-row select:focus{border-color:var(--g)}
+
+/* Buttons */
+.btn{padding:12px 22px;border-radius:var(--rad);font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--g);color:#fff}
+.btn-primary:hover{background:var(--g2)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-secondary{background:var(--bg3);color:var(--tx);border:0.5px solid var(--br2)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+
+/* Preview table */
+.preview-row-inc td:nth-child(4){color:var(--g);font-weight:600}
+.preview-row-exp td:nth-child(4){color:var(--r);font-weight:600}
+.badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.bi{background:var(--gbg);color:var(--gdk)}.be{background:var(--rbg);color:#991b1b}.bt{background:var(--bbg);color:var(--bdk)}.bm{background:var(--abg);color:#92400e}
+td .badge-type{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600;cursor:pointer;border:1px solid var(--br2);background:var(--bg2)}
+
+/* Output */
+.csv-out{width:100%;min-height:220px;padding:13px 14px;font-size:12px;font-family:'SF Mono','Fira Code',monospace;border:1.5px solid var(--br2);border-radius:var(--rad);background:var(--bg2);color:var(--tx);resize:vertical;outline:none;line-height:1.7}
+.copy-btn{display:flex;align-items:center;gap:7px}
+.stats-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:var(--bg2);border-radius:var(--rad);padding:10px 14px;border:0.5px solid var(--br);flex:1;min-width:100px}
+.stat-lbl{font-size:11px;color:var(--tx2);margin-bottom:3px}
+.stat-val{font-size:18px;font-weight:700}
+
+/* Info box */
+.info{background:var(--bbg);border:0.5px solid #93c5fd;border-radius:var(--rad);padding:12px 14px;font-size:13px;color:var(--bdk);margin-bottom:14px;line-height:1.6}
+.warn{background:var(--abg);border:0.5px solid #fcd34d;border-radius:var(--rad);padding:12px 14px;font-size:13px;color:#92400e;margin-bottom:14px;line-height:1.6}
+
+/* Instructions */
+.inst-list{list-style:none;padding:0}
+.inst-list li{display:flex;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--br);font-size:13px;line-height:1.6}
+.inst-list li:last-child{border-bottom:none}
+.inst-list .num{width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+
+/* Separator hint */
+.sep-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.sep-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--br2);background:none;font-size:12px;cursor:pointer;color:var(--tx2);font-weight:500}
+.sep-btn.sel{background:var(--g);color:#fff;border-color:var(--g)}
+
+/* Sheet instructions */
+.sheet-steps{counter-reset:sh}
+.sheet-step{display:flex;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--br)}
+.sheet-step:last-child{border-bottom:none}
+.sh-num{width:26px;height:26px;background:var(--g);color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sh-txt{font-size:13px;line-height:1.6;color:var(--tx)}
+.sh-txt strong{font-weight:600}
+.sh-txt code{background:var(--bg3);padding:1px 6px;border-radius:4px;font-family:monospace;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div>
+    <h1>📥 FinTrack Bulk Importer</h1>
+  </div>
+  <span>Paste → Map → Export to Sheet</span>
+</div>
+
+<div class="container">
+
+  <!-- Step tabs -->
+  <div class="steps">
+    <div class="step-tab active" id="tab1" onclick="goStep(1)"><span class="step-num">📋</span><span class="step-lbl">1. Paste data</span></div>
+    <div class="step-tab" id="tab2" onclick="goStep(2)"><span class="step-num">🗂</span><span class="step-lbl">2. Map columns</span></div>
+    <div class="step-tab" id="tab3" onclick="goStep(3)"><span class="step-num">✏️</span><span class="step-lbl">3. Review & fix</span></div>
+    <div class="step-tab" id="tab4" onclick="goStep(4)"><span class="step-num">📤</span><span class="step-lbl">4. Copy to Sheet</span></div>
+  </div>
+
+  <!-- ══ STEP 1: PASTE ══ -->
+  <div class="panel active" id="panel1">
+    <div class="card">
+      <h3>Which bank / source?</h3>
+      <p class="sub">Select your bank for a pre-filled column mapping, or choose Custom to map manually.</p>
+      <div class="bank-grid">
+        <button class="bank-btn sel" onclick="selectBank('custom',this)"><span class="bank-icon">🏦</span>Custom / Other</button>
+        <button class="bank-btn" onclick="selectBank('hdfc',this)"><span class="bank-icon">🔵</span>HDFC Bank</button>
+        <button class="bank-btn" onclick="selectBank('icici',this)"><span class="bank-icon">🟠</span>ICICI Bank</button>
+        <button class="bank-btn" onclick="selectBank('sbi',this)"><span class="bank-icon">🟣</span>SBI</button>
+        <button class="bank-btn" onclick="selectBank('axis',this)"><span class="bank-icon">🔴</span>Axis Bank</button>
+        <button class="bank-btn" onclick="selectBank('kotak',this)"><span class="bank-icon">🟤</span>Kotak</button>
+        <button class="bank-btn" onclick="selectBank('yes',this)"><span class="bank-icon">🟢</span>Yes Bank</button>
+        <button class="bank-btn" onclick="selectBank('paytm',this)"><span class="bank-icon">💙</span>Paytm / UPI</button>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-radius:var(--rad);border:0.5px solid var(--br2)">
+        <input type="checkbox" id="is-cc" style="width:18px;height:18px;cursor:pointer;accent-color:var(--g)" onchange="toggleCCFields(this.checked)">
+        <label for="is-cc" style="font-size:14px;font-weight:600;cursor:pointer">This is a credit card statement</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Credit card? Set your statement base</h3>
+      <p class="sub" id="cc-hint" style="display:none">Since you selected a credit card, enter your <strong>last statement closing balance</strong> and dates below. New transactions from the imported statement will be added on top.</p>
+      <div id="cc-base-fields" style="display:none;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div class="fg"><label>Last stmt balance (₹)</label><input type="number" id="cc-stmt-bal" placeholder="0" inputmode="decimal"></div>
+          <div class="fg"><label>Bill generation date</label>
+            <select id="cc-bill-gen" style="width:100%;padding:9px 10px;font-size:13px;border:1px solid var(--br2);border-radius:var(--rad);background:var(--bg2);color:var(--tx)">
+              <option value="">— day of month —</option>
+              <option value="1">1st every month</option>
+              <option value="2">2nd every month</option>
+              <option value="3">3rd every month</option>
+              <option value="4">4th every month</option>
+              <option value="5">5th every month</option>
+              <option value="6">6th every month</option>
+              <option value="7">7th every month</option>
+              <option value="8">8th every month</option>
+              <option value="9">9th every month</option>
+              <option value="10">10th every month</option>
+              <option value="11">11th every month</option>
+              <option value="12">12th every month</option>
+              <option value="13">13th every month</option>
+              <option value="14">14th every month</option>
+              <option value="15">15th every month</option>
+              <option value="16">16th every month</option>
+              <option value="17">17th every month</option>
+              <option value="18">18th every month</option>
+              <option value="19">19th every month</option>
+              <option value="20">20th every month</option>
+              <option value="21">21th every month</option>
+              <option value="22">22th every month</option>
+              <option value="23">23th every month</option>
+              <option value="24">24th every month</option>
+              <option value="25">25th every month</option>
+              <option value="26">26th every month</option>
+              <option value="27">27th every month</option>
+              <option value="28">28th every month</option>
+            </select>
+          </div>
+          <div class="fg"><label>Payment due date</label>
+            <select id="cc-bill-due" style="width:100%;padding:9px 10px;font-size:13px;border:1px solid var(--br2);border-radius:var(--rad);background:var(--bg2);color:var(--tx)">
+              <option value="">— day of month —</option>
+              <option value="1">1st every month</option>
+              <option value="2">2nd every month</option>
+              <option value="3">3rd every month</option>
+              <option value="4">4th every month</option>
+              <option value="5">5th every month</option>
+              <option value="6">6th every month</option>
+              <option value="7">7th every month</option>
+              <option value="8">8th every month</option>
+              <option value="9">9th every month</option>
+              <option value="10">10th every month</option>
+              <option value="11">11th every month</option>
+              <option value="12">12th every month</option>
+              <option value="13">13th every month</option>
+              <option value="14">14th every month</option>
+              <option value="15">15th every month</option>
+              <option value="16">16th every month</option>
+              <option value="17">17th every month</option>
+              <option value="18">18th every month</option>
+              <option value="19">19th every month</option>
+              <option value="20">20th every month</option>
+              <option value="21">21th every month</option>
+              <option value="22">22th every month</option>
+              <option value="23">23th every month</option>
+              <option value="24">24th every month</option>
+              <option value="25">25th every month</option>
+              <option value="26">26th every month</option>
+              <option value="27">27th every month</option>
+              <option value="28">28th every month</option>
+            </select>
+          </div>
+        </div>
+        <div style="background:var(--bbg);border:0.5px solid #93c5fd;border-radius:var(--rad);padding:10px 12px;font-size:12px;color:var(--bdk);line-height:1.6">
+          💡 Transactions in this statement will automatically be tagged to your credit card account and treated as expenses (not bank debits).
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Paste your statement</h3>
+      <p class="sub">Copy rows from your bank's CSV/Excel export and paste below. Include the header row. Works with tab-separated or comma-separated data.</p>
+      <div class="sep-row">
+        <span style="font-size:12px;color:var(--tx2);align-self:center">Separator:</span>
+        <button class="sep-btn sel" onclick="setSep('auto',this)">Auto-detect</button>
+        <button class="sep-btn" onclick="setSep(',',this)">Comma</button>
+        <button class="sep-btn" onclick="setSep('\t',this)">Tab</button>
+        <button class="sep-btn" onclick="setSep('|',this)">Pipe |</button>
+      </div>
+      <textarea class="paste-area" id="raw-input" placeholder="Paste your bank statement rows here...
+
+Example (HDFC CSV):
+Date,Narration,Value Dat,Debit Amount,Credit Amount,Chq/Ref Number,Closing Balance
+01/06/2026,SALARY CREDIT,,, 85000.00,,185000.00
+02/06/2026,SWIGGY UPI,, 450.00,,,184550.00
+03/06/2026,HDFC CREDITCARD EMI,, 12000.00,,,172550.00"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="parseInput()">Parse data →</button>
+        <span id="parse-status" style="font-size:13px;color:var(--tx2)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2: MAP ══ -->
+  <div class="panel" id="panel2">
+    <div class="card">
+      <h3>Map your columns</h3>
+      <p class="sub">Tell the importer which column from your statement maps to which FinTrack field. Your detected columns are shown on the right.</p>
+      <div id="col-mapping"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="buildPreview()">Preview transactions →</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Detected columns preview</h3>
+      <div class="tbl-wrap" id="raw-preview"></div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 3: REVIEW ══ -->
+  <div class="panel" id="panel3">
+    <div class="card">
+      <h3>Review & fix transactions</h3>
+      <p class="sub">Check each row. Fix the type (Income / Expense / Transfer / EMI), category, and description. Uncheck any rows you don't want to import.</p>
+      <div class="stats-row" id="review-stats"></div>
+      <!-- Bulk re-categorise bar -->
+      <div style="background:var(--bg2);border:0.5px solid var(--br2);border-radius:var(--rad);padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:600;color:var(--tx2)">Bulk change selected:</span>
+        <select id="bulk-type" style="padding:7px 10px;font-size:13px;border:1px solid var(--br2);border-radius:var(--rad);background:var(--bg);color:var(--tx)">
+          <option value="">— Type —</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="transfer">Transfer</option>
+          <option value="emi">EMI</option>
+        </select>
+        <select id="bulk-cat" style="padding:7px 10px;font-size:13px;border:1px solid var(--br2);border-radius:var(--rad);background:var(--bg);color:var(--tx)">
+          <option value="">— Category —</option>
+          <optgroup label="Income">
+            <option>Salary</option><option>Freelance</option><option>Business</option><option>Rental</option><option>Interest</option><option>Dividend</option><option>Bonus</option><option>Refund</option><option>Other Income</option>
+          </optgroup>
+          <optgroup label="Expense">
+            <option>Rent</option><option>Food</option><option>Groceries</option><option>Transport</option><option>Utilities</option><option>Healthcare</option><option>Education</option><option>Entertainment</option><option>Clothing</option><option>Insurance</option><option>Kids</option><option>Shopping</option><option>Investment</option><option>EMI</option><option>Other</option>
+          </optgroup>
+        </select>
+        <button class="btn btn-secondary" style="padding:7px 14px;font-size:13px" onclick="applyBulk()">Apply to checked rows</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="review-table">
+          <thead><tr>
+            <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)" checked></th>
+            <th>Date</th><th>Description</th><th>Amount</th>
+            <th>Type</th><th>Category</th><th>Account</th>
+          </tr></thead>
+          <tbody id="review-tbody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(2)">← Back</button>
+        <button class="btn btn-primary" onclick="generateOutput()">Generate CSV →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 4: EXPORT ══ -->
+  <div class="panel" id="panel4">
+    <div class="card">
+      <h3>Your formatted data is ready</h3>
+      <p class="sub">Copy everything below and paste it into your FinTrack Google Sheet → Transactions tab, starting from the first empty row after the header.</p>
+      <div class="stats-row" id="output-stats"></div>
+      <textarea class="csv-out" id="csv-output" readonly></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary copy-btn" onclick="copyCSV()">📋 Copy all to clipboard</button>
+        <button class="btn btn-secondary" onclick="downloadCSV()">⬇ Download as CSV</button>
+        <span id="copy-confirm" style="font-size:13px;color:var(--g);font-weight:600"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>How to paste into Google Sheet</h3>
+      <div class="sheet-steps">
+        <div class="sheet-step"><div class="sh-num">1</div><div class="sh-txt">Open your <strong>FinTrack Google Sheet</strong> → click the <strong>Transactions</strong> tab at the bottom</div></div>
+        <div class="sheet-step"><div class="sh-num">2</div><div class="sh-txt">Click on the <strong>first empty cell in column A</strong> (below the last existing row, or row 2 if empty)</div></div>
+        <div class="sheet-step"><div class="sh-num">3</div><div class="sh-txt">Press <code>Ctrl+V</code> (or <code>Cmd+V</code> on Mac) to paste. Choose <strong>"Split text to columns"</strong> if prompted — select Comma as separator</div></div>
+        <div class="sheet-step"><div class="sh-num">4</div><div class="sh-txt">Go back to the <strong>FinTrack app</strong> → tap the <strong>↻ sync button</strong> (top right) — your transactions will load instantly</div></div>
+      </div>
+    </div>
+
+    <div class="warn">⚠️ <strong>Duplicate check:</strong> If you're importing the same statement twice, the Sheet may get duplicate rows. Always check the Sheet before pasting to avoid counting transactions twice.
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════
+let rawRows    = [];    // parsed rows from input
+let headers    = [];    // detected column names
+let colMap     = {};    // field → column index mapping
+let previewTxns= [];    // built transaction objects
+let separator  = 'auto';
+let selectedBank = 'custom';
+
+const BANK_PRESETS = {
+  hdfc:   { date:0, desc:1, debit:3, credit:4, balance:6 },
+  icici:  { date:0, desc:1, debit:4, credit:5, balance:6 },
+  sbi:    { date:0, desc:1, debit:4, credit:5, balance:6 },
+  axis:   { date:1, desc:2, debit:4, credit:5, balance:6 },
+  kotak:  { date:0, desc:1, debit:3, credit:4, balance:5 },
+  yes:    { date:0, desc:1, debit:3, credit:4, balance:5 },
+  paytm:  { date:0, desc:1, debit:2, credit:3, balance:4 },
+  custom: {}
+};
+
+const EXP_CATS = ['Rent','Food','Groceries','Transport','Utilities','Healthcare','Education',
+                  'Entertainment','Clothing','Insurance','Kids','Shopping','Investment','EMI','Other'];
+const INC_CATS = ['Salary','Freelance','Business','Rental','Interest','Dividend','Bonus','Refund','Other Income'];
+
+const KEYWORD_MAP = [
+  // Income
+  {kw:['salary','sal credit','payroll'],          type:'income',  cat:'Salary'},
+  {kw:['interest cr','int cr','savings interest'], type:'income',  cat:'Interest'},
+  {kw:['dividend'],                                type:'income',  cat:'Dividend'},
+  {kw:['refund','reversal','cashback'],            type:'income',  cat:'Refund'},
+  // Investments
+  {kw:['sip','mutual fund','mf','nps','ppf','elss','zerodha','groww','kfintech','cams'],
+                                                   type:'expense', cat:'Investment'},
+  // EMI
+  {kw:['emi','loan','housing','auto loan','car loan'], type:'emi', cat:'EMI'},
+  // Credit card payment
+  {kw:['credit card','creditcard','cc payment'],   type:'expense', cat:'EMI'},
+  // UPI / transfers
+  {kw:['transfer to','neft','rtgs','imps'],        type:'transfer',cat:'Transfer'},
+  // Expenses
+  {kw:['swiggy','zomato','food'],                  type:'expense', cat:'Food'},
+  {kw:['amazon','flipkart','myntra','meesho'],     type:'expense', cat:'Shopping'},
+  {kw:['uber','ola','rapido','irctc','railway','metro'], type:'expense', cat:'Transport'},
+  {kw:['electricity','water','gas','jio','airtel','bsnl','wifi','broadband'], type:'expense', cat:'Utilities'},
+  {kw:['rent','landlord'],                         type:'expense', cat:'Rent'},
+  {kw:['apollo','medplus','hospital','pharmacy','doctor'], type:'expense', cat:'Healthcare'},
+  {kw:['school','college','fees','tuition'],       type:'expense', cat:'Education'},
+  {kw:['bigbasket','grofer','dmart','supermarket','kirana'], type:'expense', cat:'Groceries'},
+  {kw:['netflix','prime','hotstar','spotify','bookmyshow'], type:'expense', cat:'Entertainment'},
+];
+
+// ════════════════════════════════════════════
+//  STEP NAVIGATION
+// ════════════════════════════════════════════
+function goStep(n){
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n-1));
+  document.querySelectorAll('.step-tab').forEach((t,i)=>{
+    t.classList.remove('active','done');
+    if(i===n-1) t.classList.add('active');
+    else if(i<n-1) t.classList.add('done');
+  });
+}
+
+// ════════════════════════════════════════════
+//  BANK & SEPARATOR
+// ════════════════════════════════════════════
+function selectBank(bank,btn){
+  selectedBank=bank;
+  document.querySelectorAll('.bank-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+// Show/hide CC fields — called when user ticks "this is a credit card"
+function toggleCCFields(show){
+  document.getElementById('cc-base-fields').style.display = show?'block':'none';
+  document.getElementById('cc-hint').style.display = show?'block':'none';
+}
+function setSep(s,btn){
+  separator=s;
+  document.querySelectorAll('.sep-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+// ════════════════════════════════════════════
+//  PARSE INPUT
+// ════════════════════════════════════════════
+function detectSep(line){
+  const counts={',':0,'\t':0,'|':0,';':0};
+  for(const c of line) if(counts[c]!==undefined) counts[c]++;
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+function parseLine(line,sep){
+  if(sep==='\t') return line.split('\t');
+  // Handle quoted CSV
+  const result=[]; let cur=''; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){inQ=!inQ;}
+    else if(ch===sep&&!inQ){result.push(cur.trim());cur='';}
+    else cur+=ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseInput(){
+  const raw=document.getElementById('raw-input').value.trim();
+  if(!raw){alert('Please paste some data first');return;}
+  const lines=raw.split('\n').filter(l=>l.trim());
+  const sep=separator==='auto'?detectSep(lines[0]):separator;
+
+  const allRows=lines.map(l=>parseLine(l,sep));
+  if(allRows.length<2){alert('Need at least a header row + 1 data row');return;}
+
+  headers=allRows[0].map(h=>h.trim());
+  rawRows=allRows.slice(1).filter(r=>r.some(c=>c.trim()));
+
+  // Remove summary/total rows (often at bottom of bank statements)
+  rawRows=rawRows.filter(r=>{
+    const joined=r.join('').toLowerCase();
+    return !joined.includes('opening balance')&&!joined.includes('closing balance')
+           &&!joined.includes('total')&&!joined.includes('statement');
+  });
+
+  document.getElementById('parse-status').textContent=`✓ ${rawRows.length} rows detected`;
+  buildMapping();
+  goStep(2);
+}
+
+// ════════════════════════════════════════════
+//  COLUMN MAPPING
+// ════════════════════════════════════════════
+function buildMapping(){
+  const preset=BANK_PRESETS[selectedBank]||{};
+  const colOpts=['— Skip —',...headers].map((h,i)=>`<option value="${i-1}">${h}</option>`).join('');
+
+  const fields=[
+    {key:'date',   label:'📅 Date',              required:true},
+    {key:'desc',   label:'📝 Description / Narration', required:true},
+    {key:'debit',  label:'💸 Debit amount',       required:false},
+    {key:'credit', label:'💰 Credit amount',      required:false},
+    {key:'amount', label:'💵 Single amount column (if no debit/credit split)', required:false},
+    {key:'balance',label:'🏦 Closing balance',    required:false},
+  ];
+
+  // Auto-guess mapping by header keyword matching
+  const autoGuess=(key)=>{
+    if(preset[key]!==undefined) return preset[key];
+    const guessMap={
+      date:    ['date','dt','txn date','value date','transaction date'],
+      desc:    ['narration','description','particulars','details','remarks','narr'],
+      debit:   ['debit','dr','withdrawal','debit amount','dr amount'],
+      credit:  ['credit','cr','deposit','credit amount','cr amount'],
+      amount:  ['amount','txn amount','transaction amount'],
+      balance: ['balance','closing balance','available balance','bal']
+    };
+    const kws=guessMap[key]||[];
+    for(let i=0;i<headers.length;i++){
+      const h=headers[i].toLowerCase();
+      if(kws.some(k=>h.includes(k))) return i;
+    }
+    return -1;
+  };
+
+  colMap={};
+  fields.forEach(f=>colMap[f.key]=autoGuess(f.key));
+
+  document.getElementById('col-mapping').innerHTML=fields.map(f=>`
+    <div class="map-row">
+      <div class="map-label">${f.label}${f.required?'<span style="color:var(--r)"> *</span>':''}</div>
+      <div class="map-arrow">→</div>
+      <select onchange="colMap['${f.key}']=parseInt(this.value)">
+        <option value="-1">— Skip —</option>
+        ${headers.map((h,i)=>`<option value="${i}" ${colMap[f.key]===i?'selected':''}>${h}</option>`).join('')}
+      </select>
+    </div>`).join('');
+
+  // Raw preview (first 5 rows)
+  const preview=rawRows.slice(0,5);
+  document.getElementById('raw-preview').innerHTML=`
+    <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${preview.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+// ════════════════════════════════════════════
+//  AUTO-CATEGORISE
+// ════════════════════════════════════════════
+function autoClassify(desc){
+  const d=desc.toLowerCase();
+  for(const rule of KEYWORD_MAP){
+    if(rule.kw.some(k=>d.includes(k))) return {type:rule.type,cat:rule.cat};
+  }
+  return {type:'expense',cat:'Other'};
+}
+
+function cleanAmount(s){
+  if(!s||!s.trim()) return 0;
+  return parseFloat(s.replace(/[^0-9.\-]/g,''))||0;
+}
+
+function parseDate(s){
+  if(!s) return '';
+  s=s.trim();
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m1=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+  // MM/DD/YYYY
+  const m2=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m2){ const yr=m2[3].length===2?'20'+m2[3]:m2[3]; return `${yr}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`; }
+  // Already YYYY-MM-DD
+  const m3=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(m3) return `${m3[1]}-${m3[2].padStart(2,'0')}-${m3[3].padStart(2,'0')}`;
+  return s;
+}
+
+// ════════════════════════════════════════════
+//  BUILD PREVIEW
+// ════════════════════════════════════════════
+function buildPreview(){
+  if(colMap.date===-1||colMap.desc===-1){alert('Please map at least Date and Description');return;}
+  if(colMap.debit===-1&&colMap.credit===-1&&colMap.amount===-1){alert('Please map at least one amount column (Debit, Credit, or Amount)');return;}
+
+  const isCreditCard = document.getElementById('is-cc')?.checked||false;
+  const ccAccName    = isCreditCard?(document.getElementById('cc-stmt-bal')?'Credit Card':''):'';
+  previewTxns=rawRows.map((row,idx)=>{
+    const date  = parseDate(row[colMap.date]||'');
+    const desc  = (row[colMap.desc]||'').trim();
+    const debit = cleanAmount(colMap.debit>=0?row[colMap.debit]:'');
+    const credit= cleanAmount(colMap.credit>=0?row[colMap.credit]:'');
+    const singleAmt=cleanAmount(colMap.amount>=0?row[colMap.amount]:'');
+
+    let amount=0, isCredit=false;
+    if(debit>0)        { amount=debit; isCredit=false; }
+    else if(credit>0)  { amount=credit; isCredit=true; }
+    else if(singleAmt!==0){ amount=Math.abs(singleAmt); isCredit=singleAmt>0; }
+
+    let classified;
+    if(isCreditCard){
+      // On a credit card statement: credit = payment received / refund, debit = spend
+      classified = isCredit ? {type:'income',cat:'Refund'} : autoClassify(desc);
+    } else {
+      classified = isCredit ? {type:'income',cat:'Other Income'} : autoClassify(desc);
+    }
+    return { idx, date, desc, amount, isCredit, type:classified.type, cat:classified.cat, account:isCreditCard?ccAccName:'', include:true };
+  }).filter(t=>t.amount>0);
+
+  renderReview();
+  goStep(3);
+}
+
+// ════════════════════════════════════════════
+//  RENDER REVIEW TABLE
+// ════════════════════════════════════════════
+function renderReview(){
+  const totalInc=previewTxns.filter(t=>t.include&&t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalExp=previewTxns.filter(t=>t.include&&t.type!=='income').reduce((s,t)=>s+t.amount,0);
+  const included=previewTxns.filter(t=>t.include).length;
+
+  document.getElementById('review-stats').innerHTML=`
+    <div class="stat"><div class="stat-lbl">Rows to import</div><div class="stat-val">${included}</div></div>
+    <div class="stat"><div class="stat-lbl">Total credits</div><div class="stat-val" style="color:var(--g)">₹${Math.round(totalInc).toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="stat-lbl">Total debits</div><div class="stat-val" style="color:var(--r)">₹${Math.round(totalExp).toLocaleString('en-IN')}</div></div>`;
+
+  const typeOpts=['income','expense','transfer','emi'].map(t=>`<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
+
+  document.getElementById('review-tbody').innerHTML=previewTxns.map((t,i)=>{
+    const catOpts=[...(t.type==='income'?INC_CATS:EXP_CATS)].map(c=>`<option ${c===t.cat?'selected':''}>${c}</option>`).join('');
+    const amtColor=t.type==='income'?'color:var(--g)':'color:var(--r)';
+    const sign=t.type==='income'?'+':'-';
+    return `<tr class="preview-row-${t.type==='income'?'inc':'exp'}">
+      <td><input type="checkbox" ${t.include?'checked':''} onchange="previewTxns[${i}].include=this.checked;renderReview()"></td>
+      <td style="white-space:nowrap;font-size:12px">${t.date}</td>
+      <td><input type="text" value="${t.desc.replace(/"/g,'')}" onchange="previewTxns[${i}].desc=this.value" style="min-width:140px"></td>
+      <td style="${amtColor};font-weight:700;white-space:nowrap">${sign}₹${Math.round(t.amount).toLocaleString('en-IN')}</td>
+      <td><select onchange="previewTxns[${i}].type=this.value;renderReview()">${typeOpts.replace(`value="${t.type}"`,`value="${t.type}" selected`)}</select></td>
+      <td><select onchange="previewTxns[${i}].cat=this.value">${catOpts}</select></td>
+      <td><input type="text" value="${t.account}" placeholder="Account name" onchange="previewTxns[${i}].account=this.value" style="min-width:100px"></td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleAll(cb){
+  previewTxns.forEach(t=>t.include=cb.checked);
+  renderReview();
+}
+
+function applyBulk(){
+  const newType = document.getElementById('bulk-type').value;
+  const newCat  = document.getElementById('bulk-cat').value;
+  const checked = previewTxns.filter(t=>t.include);
+  if(!checked.length){ alert('Check some rows first'); return; }
+  if(!newType&&!newCat){ alert('Select a type or category to apply'); return; }
+  checked.forEach(t=>{
+    if(newType) t.type = newType;
+    if(newCat)  t.cat  = newCat;
+  });
+  renderReview();
+  const n = checked.length;
+  // Flash confirmation
+  const bar = document.querySelector('.bulk-confirm')||document.createElement('div');
+  bar.className='bulk-confirm';
+  bar.style.cssText='color:var(--g);font-size:13px;font-weight:600;margin-top:6px';
+  bar.textContent = `✓ Applied to ${n} row${n!==1?'s':''}`;
+  document.getElementById('bulk-type').parentNode.appendChild(bar);
+  setTimeout(()=>bar.remove(),2500);
+}
+
+// ════════════════════════════════════════════
+//  GENERATE OUTPUT
+// ════════════════════════════════════════════
+function uid(){ return Date.now()+'_'+Math.random().toString(36).slice(2,6); }
+
+function generateOutput(){
+  const rows=previewTxns.filter(t=>t.include);
+  if(!rows.length){alert('No rows selected');return;}
+
+  // Format: id,date,type,amount,fromAccountId,toAccountId,category,desc,reconciled
+  const lines=rows.map(t=>[
+    uid(),
+    t.date,
+    t.type,
+    t.amount,
+    t.account||'',   // user can update accountId in sheet later
+    '',
+    t.cat,
+    `"${t.desc.replace(/"/g,'""')}"`,
+    'false'
+  ].join(','));
+
+  const csv=lines.join('\n');
+  document.getElementById('csv-output').value=csv;
+
+  const inc=rows.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const exp=rows.filter(t=>t.type!=='income').reduce((s,t)=>s+t.amount,0);
+  document.getElementById('output-stats').innerHTML=`
+    <div class="stat"><div class="stat-lbl">Rows ready</div><div class="stat-val">${rows.length}</div></div>
+    <div class="stat"><div class="stat-lbl">Total income</div><div class="stat-val" style="color:var(--g)">₹${Math.round(inc).toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="stat-lbl">Total expense</div><div class="stat-val" style="color:var(--r)">₹${Math.round(exp).toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="stat-lbl">Net</div><div class="stat-val" style="color:${inc-exp>=0?'var(--g)':'var(--r)'}">₹${Math.round(Math.abs(inc-exp)).toLocaleString('en-IN')}</div></div>`;
+
+  goStep(4);
+}
+
+function copyCSV(){
+  const txt=document.getElementById('csv-output').value;
+  navigator.clipboard.writeText(txt).then(()=>{
+    document.getElementById('copy-confirm').textContent='✓ Copied to clipboard!';
+    setTimeout(()=>document.getElementById('copy-confirm').textContent='',3000);
+  });
+}
+
+function downloadCSV(){
+  const txt=document.getElementById('csv-output').value;
+  const blob=new Blob([txt],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='fintrack-transactions-import.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
