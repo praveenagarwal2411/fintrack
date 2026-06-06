@@ -286,6 +286,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .alloc-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)}
 .alloc-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 
+/* ── Txn account header ── */
+.txn-acc-header{border-radius:0 0 var(--radl) var(--radl);padding:20px 16px 16px;position:relative;overflow:hidden}
+.txn-acc-header::after{content:'';position:absolute;top:-40px;right:-30px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.07);pointer-events:none}
+.tah-type{font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.tah-name{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:12px;line-height:1.1}
+.tah-bal{font-size:32px;font-weight:800;color:#fff;letter-spacing:-1.5px;line-height:1}
+.tah-bal-lbl{font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;margin-bottom:12px}
+.tah-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.tah-stat{background:rgba(255,255,255,0.1);border-radius:10px;padding:8px 12px}
+.tah-stat-lbl{font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.tah-stat-val{font-size:14px;font-weight:700;color:#fff}
+.tah-utilbar{height:5px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;margin-top:12px}
+.tah-utilfill{height:100%;border-radius:3px;transition:width .4s}
+
 /* ── Toggle ── */
 .toggle-wrap{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
 .toggle-wrap label{font-size:13px;font-weight:500}
@@ -368,17 +382,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <!-- TRANSACTIONS -->
-    <div id="pg-txns" class="page">
-      <div class="sh">
-        <span class="st" id="txn-page-title">Transactions</span>
-        <button class="fab fab-sm" onclick="openModal('txn')" aria-label="Add transaction">
-          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+    <div id="pg-txns" class="page" style="padding:0 0 calc(var(--nav)+16px)">
+      <div id="txn-acc-header"></div>
+      <div style="padding:0 16px">
+        <div class="sh" style="margin-top:14px">
+          <span class="st" id="txn-page-title">Transactions</span>
+          <button class="fab fab-sm" onclick="openModal('txn')" aria-label="Add transaction">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="fbar" id="txn-type-filters"></div>
+        <div class="fbar" id="txn-acc-filters"></div>
+        <div id="txn-summary" style="margin-bottom:10px"></div>
+        <div id="all-txns"></div>
       </div>
-      <div class="fbar" id="txn-type-filters"></div>
-      <div class="fbar" id="txn-acc-filters"></div>
-      <div id="txn-summary" style="margin-bottom:10px"></div>
-      <div id="all-txns"></div>
     </div>
 
     <!-- BUDGET -->
@@ -1732,6 +1749,42 @@ function renderAccounts(){
 //  RENDER — TRANSACTIONS
 // ════════════════════════════════════════════
 function renderTxns(){
+  // ── Account header (shown when filtered to single account) ──
+  const headerEl = document.getElementById('txn-acc-header');
+  if(headerEl){
+    const acc = txnFilterAcc!=='all' ? cache.accounts.find(a=>a.id===txnFilterAcc) : null;
+    if(acc){
+      const bal     = calcAccountBalance(acc.id);
+      const isLiab  = ['credit','loan'].includes(acc.type);
+      const isCredit= acc.type==='credit';
+      const bg      = acc.color||'#10b981';
+      const lim     = parseFloat(acc.limit)||0;
+      const usedPct = isLiab&&lim>0?Math.min(100,Math.round(Math.abs(bal)/lim*100)):0;
+      const barColor= usedPct>85?'#fca5a5':usedPct>60?'#fcd34d':'rgba(255,255,255,0.7)';
+      const accTxns = cache.transactions.filter(t=>t.fromAccountId===acc.id||t.toAccountId===acc.id);
+      const thisM   = ymOf(today());
+      const mTxns   = accTxns.filter(t=>ymOf(t.date)===thisM);
+      const mExp    = mTxns.filter(t=>t.type!=='income'&&t.type!=='transfer').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+      const mInc    = mTxns.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+
+      headerEl.innerHTML=`<div class="txn-acc-header" style="background:linear-gradient(135deg,${bg}f0,${bg}99)">
+        <div class="tah-type">${acc.type.charAt(0).toUpperCase()+acc.type.slice(1)} · ${acc.openingDate?'Since '+fmtDate(acc.openingDate):''}</div>
+        <div class="tah-name">${acc.name}</div>
+        <div class="tah-bal">${fmt(Math.abs(bal))}</div>
+        <div class="tah-bal-lbl">${isLiab?'outstanding balance':'available balance'}</div>
+        ${isCredit&&lim>0?`<div class="tah-utilbar"><div class="tah-utilfill" style="width:${usedPct}%;background:${barColor}"></div></div><div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:5px">${usedPct}% of ${fmt(lim)} limit used</div>`:''}
+        <div class="tah-row">
+          <div class="tah-stat"><div class="tah-stat-lbl">Total txns</div><div class="tah-stat-val">${accTxns.length}</div></div>
+          ${mInc>0?`<div class="tah-stat"><div class="tah-stat-lbl">In this month</div><div class="tah-stat-val">+${fmt(mInc)}</div></div>`:''}
+          ${mExp>0?`<div class="tah-stat"><div class="tah-stat-lbl">Out this month</div><div class="tah-stat-val">-${fmt(mExp)}</div></div>`:''}
+          ${isCredit&&acc.billDue?`<div class="tah-stat"><div class="tah-stat-lbl">Due date</div><div class="tah-stat-val">${acc.billDue}${parseInt(acc.billDue)===1?'st':parseInt(acc.billDue)===2?'nd':parseInt(acc.billDue)===3?'rd':'th'} every month</div></div>`:''}
+        </div>
+      </div>`;
+    } else {
+      headerEl.innerHTML='';
+    }
+  }
+
   // Type filter
   const types=[{k:'all',l:'All'},{k:'income',l:'💰 Income'},{k:'expense',l:'🛒 Expense'},{k:'transfer',l:'↔ Transfer'},{k:'emi',l:'💳 EMI'}];
   document.getElementById('txn-type-filters').innerHTML=types.map(f=>
