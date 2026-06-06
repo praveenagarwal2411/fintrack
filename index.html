@@ -370,13 +370,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <!-- TRANSACTIONS -->
     <div id="pg-txns" class="page">
       <div class="sh">
-        <span class="st">Transactions</span>
+        <span class="st" id="txn-page-title">Transactions</span>
         <button class="fab fab-sm" onclick="openModal('txn')" aria-label="Add transaction">
           <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
       <div class="fbar" id="txn-type-filters"></div>
       <div class="fbar" id="txn-acc-filters"></div>
+      <div id="txn-summary" style="margin-bottom:10px"></div>
       <div id="all-txns"></div>
     </div>
 
@@ -420,22 +421,22 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <nav class="bnav">
-    <button class="ni on" onclick="showPage('dash',this)">
+    <button id="nav-dash"     class="ni on" onclick="showPage('dash',this)">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dash
     </button>
-    <button class="ni" onclick="showPage('accounts',this)">
+    <button id="nav-accounts" class="ni" onclick="showPage('accounts',this)">
       <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Accounts
     </button>
-    <button class="ni" onclick="showPage('txns',this)">
+    <button id="nav-txns"     class="ni" onclick="showPage('txns',this)">
       <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Txns
     </button>
-    <button class="ni" onclick="showPage('invest',this)">
+    <button id="nav-invest"   class="ni" onclick="showPage('invest',this)">
       <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Invest
     </button>
-    <button class="ni" onclick="showPage('budget',this)">
+    <button id="nav-budget"   class="ni" onclick="showPage('budget',this)">
       <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>Budget
     </button>
-    <button class="ni" onclick="showPage('rec',this)">
+    <button id="nav-rec"      class="ni" onclick="showPage('rec',this)">
       <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Check
     </button>
   </nav>
@@ -1504,7 +1505,7 @@ function renderDash(){
         <div class="pc-sub">${tot.income>0?Math.round(tot.expense/tot.income*100)+'% of income · tap':''}</div>
         <div class="pc-icon">🛒</div>
       </div>
-      <div class="pulse-card pc-invest" onclick="showPage('invest',document.querySelector('.ni:nth-child(4)'))" style="cursor:pointer">
+      <div class="pulse-card pc-invest" onclick="showPage('invest',document.getElementById('nav-invest'))" style="cursor:pointer">
         <div class="pc-lbl">Invested</div>
         <div class="pc-val">${fmt(tot.invested)}</div>
         <div class="pc-sub">${cache.investments.filter(i=>i.freq==='monthly').length} active SIPs · tap to view</div>
@@ -1748,6 +1749,31 @@ function renderTxns(){
   if(txnFilterAcc!=='all')  rows=rows.filter(x=>x.fromAccountId===txnFilterAcc||x.toAccountId===txnFilterAcc);
   rows.sort((a,b)=>new Date(b.date)-new Date(a.date));
 
+  // Summary bar
+  const sumInc  = rows.filter(r=>r.type==='income').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const sumExp  = rows.filter(r=>r.type!=='income'&&r.type!=='transfer').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const sumEl   = document.getElementById('txn-summary');
+  if(sumEl && rows.length){
+    sumEl.innerHTML = `<div style="display:flex;gap:10px;font-size:12px;flex-wrap:wrap">
+      <span style="background:var(--gbg);color:var(--gdk);padding:4px 10px;border-radius:20px;font-weight:600">${rows.length} transactions</span>
+      ${sumInc>0?`<span style="background:var(--gbg);color:var(--gdk);padding:4px 10px;border-radius:20px;font-weight:600">+${fmt(sumInc)}</span>`:''}
+      ${sumExp>0?`<span style="background:var(--rbg);color:var(--rdk);padding:4px 10px;border-radius:20px;font-weight:600">-${fmt(sumExp)}</span>`:''}
+    </div>`;
+  } else if(sumEl){ sumEl.innerHTML=''; }
+
+  // Update page title if filtered
+  const titleEl = document.getElementById('txn-page-title');
+  if(titleEl){
+    if(txnFilterAcc!=='all'){
+      const acc=cache.accounts.find(a=>a.id===txnFilterAcc);
+      titleEl.textContent = acc?acc.name+' transactions':'Transactions';
+    } else if(txnFilterType!=='all'){
+      titleEl.textContent = txnFilterType.charAt(0).toUpperCase()+txnFilterType.slice(1)+' transactions';
+    } else {
+      titleEl.textContent = 'All transactions';
+    }
+  }
+
   document.getElementById('all-txns').innerHTML=rows.length
     ? '<div class="txn-list">'+rows.map(t=>txnRow(t,true)).join('')+'</div>'
     : '<div class="empty"><div class="empty-icon">📋</div><p>No transactions match this filter.</p></div>';
@@ -1756,15 +1782,13 @@ function renderTxns(){
 function drillAccount(accId){
   txnFilterType = 'all';
   txnFilterAcc  = accId;
-  const btn = document.querySelector('.ni:nth-child(3)');
-  showPage('txns', btn);
+  showPage('txns', document.getElementById('nav-txns'));
 }
 
 function drillTxnType(type){
   txnFilterType = type;
   txnFilterAcc  = 'all';
-  const btn = document.querySelector('.ni:nth-child(3)');
-  showPage('txns', btn);
+  showPage('txns', document.getElementById('nav-txns'));
 }
 
 function setTxnFilter(key,val){
