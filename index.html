@@ -319,7 +319,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="sstep"><div class="snum">1</div><div class="stxt">Open <a href="https://sheets.google.com" target="_blank">Google Sheets</a> → create a blank spreadsheet → name it <strong>"FinTrack"</strong></div></div>
     <div class="sstep"><div class="snum">2</div><div class="stxt">Click <strong>Extensions → Apps Script</strong> → delete all code → paste contents of <strong>Code.gs</strong> → Save</div></div>
     <div class="sstep"><div class="snum">3</div><div class="stxt">Click <strong>Deploy → New deployment</strong>. Click the gear icon → select <strong>Web app</strong>. Set:<br>• Execute as: <strong>Me</strong><br>• Who has access: <strong>Anyone</strong><br>Click <strong>Deploy</strong> → allow permissions → copy the <strong>Web app URL</strong> (ends in /exec)</div></div>
-    <div class="sstep"><div class="snum">4</div><div class="stxt"><strong>Important:</strong> After any code change, always do <strong>Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy</strong>. Re-using an old version won't pick up changes.</div></div>
+    <div class="sstep"><div class="snum">4</div><div class="stxt"><strong>Important:</strong> After any code change, always do <strong>Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy</strong>. Re-using an old version will not pick up changes.</div></div>
     <div class="sstep"><div class="snum">5</div><div class="stxt">Paste the URL below and tap <strong>🔍 Test URL</strong> first — you should see <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">{"ok":true}</code> in the new tab. Then tap Connect.</div></div>
   </div>
   <div class="url-wrap">
@@ -786,7 +786,7 @@ async function connectSheet(e){
     if(msg.includes('Failed to fetch') || msg.includes('NetworkError')){
       hint = '<br><br><strong>Most likely cause:</strong> The script is not deployed as a Web App, or "Who has access" is not set to <em>Anyone</em>. Re-deploy and try again.';
     } else if(msg.includes('HTTP 302') || msg.includes('redirect')){
-      hint = '<br><br>Google is redirecting the request. Make sure you're signed into Google and try opening the URL directly in your browser first.';
+      hint = '<br><br>Google is redirecting the request. Make sure you are signed into Google and try opening the URL directly in your browser first.';
     } else if(msg.includes('Bad response')){
       hint = '<br><br>The URL is reachable but returned unexpected data. Make sure you pasted the <strong>Code.gs</strong> script correctly and redeployed.';
     }
