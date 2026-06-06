@@ -1767,7 +1767,7 @@ function renderTxns(){
       const mExp    = mTxns.filter(t=>t.type!=='income'&&t.type!=='transfer').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
       const mInc    = mTxns.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
 
-      headerEl.innerHTML=`<div class="txn-acc-header" style="background:linear-gradient(135deg,${bg}f0,${bg}99)">
+      headerEl.innerHTML=`<div class="txn-acc-header" style="background:linear-gradient(160deg,${bg} 0%,${bg}bb 100%)">
         <div class="tah-type">${acc.type.charAt(0).toUpperCase()+acc.type.slice(1)} · ${acc.openingDate?'Since '+fmtDate(acc.openingDate):''}</div>
         <div class="tah-name">${acc.name}</div>
         <div class="tah-bal">${fmt(Math.abs(bal))}</div>
@@ -1827,8 +1827,17 @@ function renderTxns(){
     }
   }
 
+  const colHeader = `<div style="display:grid;grid-template-columns:58px 80px 1fr 72px 72px 68px 28px;background:var(--bg3);border-top:0.5px solid var(--br);border-bottom:0.5px solid var(--br2)">
+    <div style="padding:7px 6px;text-align:center;font-size:10px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;border-right:0.5px solid var(--br)">Date</div>
+    <div style="padding:7px 6px;text-align:center;font-size:10px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;border-right:0.5px solid var(--br)">Type</div>
+    <div style="padding:7px 10px;font-size:10px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;border-right:0.5px solid var(--br)">Description</div>
+    <div style="padding:7px 8px;text-align:right;font-size:10px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.05em;border-right:0.5px solid var(--br)">Credit</div>
+    <div style="padding:7px 8px;text-align:right;font-size:10px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.05em;border-right:0.5px solid var(--br)">Debit</div>
+    <div style="padding:7px 6px;text-align:center;font-size:10px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;border-right:0.5px solid var(--br)">Status</div>
+    <div style="padding:7px 4px"></div>
+  </div>`;
   document.getElementById('all-txns').innerHTML=rows.length
-    ? '<div class="txn-list">'+rows.map(t=>txnRow(t,true)).join('')+'</div>'
+    ? colHeader+'<div>'+rows.map(t=>txnRow(t,true)).join('')+'</div>'
     : '<div class="empty"><div class="empty-icon">📋</div><p>No transactions match this filter.</p></div>';
 }
 // ── Drill-down from dashboard ──
@@ -1850,32 +1859,68 @@ function setTxnFilter(key,val){
 }
 
 function txnRow(t,showDel){
-  const acc = cache.accounts.find(a=>a.id===t.fromAccountId);
-  const toAcc = t.toAccountId?cache.accounts.find(a=>a.id===t.toAccountId):null;
-  const accName = acc?acc.name:'Unknown';
+  const acc      = cache.accounts.find(a=>a.id===t.fromAccountId);
+  const toAcc    = t.toAccountId?cache.accounts.find(a=>a.id===t.toAccountId):null;
   const isIncome = t.type==='income';
-  const isTransfer = t.type==='transfer';
-  const icon = isTransfer?'↔':isIncome?'💰':t.type==='emi'?'💳':'🛒';
-  const bgCol = isTransfer?'var(--bbg)':isIncome?'var(--gbg)':'var(--rbg)';
-  const amtColor = isTransfer?'cl-b':isIncome?'cl-g':'cl-r';
-  const amtSign  = isIncome?'+':isTransfer?'':'-';
-  const badgeCls = isTransfer?'bb':isIncome?'bg':'br2';
-  const recDot = t.reconciled==='true'
-    ? `<span class="rec-dot" style="background:#10b981" title="Reconciled"></span>`
-    : `<span class="rec-dot" style="background:var(--bg3);border:1px solid var(--br2)" title="Unreconciled"></span>`;
-  const del = showDel?`<button class="del-btn" onclick="deleteTxn('${t.id}')" aria-label="Delete">🗑</button>`:'';
-  const toAccStr = toAcc?` → ${toAcc.name}`:'';
-  return `<div class="txn">
-    <div class="txi" style="background:${bgCol}">${icon}</div>
-    <div class="tb">
-      <div class="tn">${t.desc||t.category}</div>
-      <div class="tm"><span class="badge ${badgeCls}">${t.category}</span>${recDot}${accName}${toAccStr} · ${fmtDate(t.date)}</div>
+  const isTrf    = t.type==='transfer';
+
+  // Type badge colours
+  const typeBg   = isTrf?'var(--bbg)':isIncome?'var(--gbg)':'var(--rbg)';
+  const typeClr  = isTrf?'#185FA5':isIncome?'#065f46':'#991b1b';
+  const typeLabel= t.type.charAt(0).toUpperCase()+t.type.slice(1);
+
+  // Debit / Credit columns
+  const amt      = parseFloat(t.amount)||0;
+  const credit   = isIncome ? fmt(amt) : (isTrf ? fmt(amt) : '—');
+  const debit    = (!isIncome&&!isTrf) ? fmt(amt) : (isTrf ? '—' : '—');
+  const creditClr= '#10b981';
+  const debitClr = '#ef4444';
+
+  // Account string
+  const fromName = acc?acc.name:'';
+  const accStr   = isTrf&&toAcc?`${fromName} → ${toAcc.name}`:fromName;
+
+  // Reconcile
+  const isRec  = t.reconciled==='true';
+  const recClr = isRec?'#10b981':'#94a3b8';
+  const recLbl = isRec?'✓ Rec':'○ Unrec';
+
+  // Date parts
+  const dt  = new Date(t.date);
+  const day = dt.getDate();
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+  const yr  = dt.getFullYear();
+
+  const del = showDel?`<button class="del-btn" onclick="deleteTxn('${t.id}')" aria-label="Delete" style="font-size:13px;opacity:.35;padding:0 4px">✕</button>`:'';
+
+  return `<div style="display:grid;grid-template-columns:58px 80px 1fr 72px 72px 68px ${showDel?'28px':''};align-items:center;border-bottom:0.5px solid var(--br);min-height:52px;gap:0">
+    <!-- Date -->
+    <div style="padding:10px 6px;text-align:center;border-right:0.5px solid var(--br)">
+      <div style="font-size:17px;font-weight:800;color:var(--tx);line-height:1">${day}</div>
+      <div style="font-size:10px;font-weight:600;color:var(--tx2);text-transform:uppercase;margin-top:1px">${mon} ${yr.toString().slice(2)}</div>
     </div>
-    <div class="tr-right">
-      <div class="ta ${amtColor}">${amtSign}${fmt(parseFloat(t.amount)||0)}</div>
-      <div style="cursor:pointer;margin-top:3px;font-size:11px;color:var(--tx2)" onclick="toggleReconcile('${t.id}')">${t.reconciled==='true'?'✓ Rec':'○ Unrec'}</div>
+    <!-- Type -->
+    <div style="padding:10px 6px;text-align:center;border-right:0.5px solid var(--br)">
+      <span style="background:${typeBg};color:${typeClr};font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap">${typeLabel}</span>
     </div>
-    ${del}
+    <!-- Description -->
+    <div style="padding:10px 10px;min-width:0;border-right:0.5px solid var(--br)">
+      <div style="font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.desc||t.category}</div>
+      <div style="font-size:11px;color:var(--tx2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.category} · ${accStr}</div>
+    </div>
+    <!-- Credit -->
+    <div style="padding:10px 8px;text-align:right;border-right:0.5px solid var(--br)">
+      ${isIncome||isTrf?`<span style="font-size:13px;font-weight:700;color:${creditClr}">${credit}</span>`:`<span style="font-size:12px;color:var(--tx3)">—</span>`}
+    </div>
+    <!-- Debit -->
+    <div style="padding:10px 8px;text-align:right;border-right:0.5px solid var(--br)">
+      ${!isIncome&&!isTrf?`<span style="font-size:13px;font-weight:700;color:${debitClr}">${debit}</span>`:`<span style="font-size:12px;color:var(--tx3)">—</span>`}
+    </div>
+    <!-- Rec status -->
+    <div style="padding:10px 6px;text-align:center;${showDel?'border-right:0.5px solid var(--br)':''}">
+      <span style="font-size:10px;font-weight:700;color:${recClr};cursor:pointer;display:block" onclick="toggleReconcile('${t.id}')">${recLbl}</span>
+    </div>
+    ${showDel?`<div style="padding:10px 4px;text-align:center">${del}</div>`:''}
   </div>`;
 }
 
