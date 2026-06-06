@@ -729,7 +729,11 @@ let mainChart = null;
 //  BOOT
 // ════════════════════════════════════════════
 (function boot(){
-  if(SCRIPT_URL){ showMain(); renderAll(); fetchAll(); }
+  if(SCRIPT_URL){
+    showMain();
+    renderAll(); // render from cache immediately for speed
+    fetchAll();  // then refresh from sheet in background
+  }
 })();
 
 // ════════════════════════════════════════════
@@ -774,9 +778,11 @@ async function connectSheet(e){
     const r = await apicall('GET',{action:'getAll',sheet:'Accounts'},url);
     if(!r.ok) throw new Error(r.error || 'Sheet returned an error');
 
-    // Success
+    // Success — clear any stale cache so fresh data loads from sheet
     SCRIPT_URL = url;
     localStorage.setItem(URL_KEY, url);
+    localStorage.removeItem(CACHE_KEY); // force fresh load
+    cache = { accounts:[], transactions:[], budgets:[], investments:[], goals:[] };
     err.innerHTML = '<span style="color:var(--g);font-weight:600">✓ Connected! Loading your data…</span>';
     setTimeout(()=>{ showMain(); fetchAll(); }, 600);
 
@@ -864,17 +870,27 @@ function jsonpFetch(url){
 }
 
 async function fetchSheet(name){
-  const r = await apicall('GET',{action:'getAll',sheet:name});
-  if(!r.ok) throw new Error(r.error);
-  return r.data||[];
+  try{
+    const r = await apicall('GET',{action:'getAll',sheet:name});
+    if(!r){ throw new Error('No response for sheet: '+name); }
+    if(!r.ok){ throw new Error((r.error||'Unknown error')+' (sheet: '+name+')'); }
+    return r.data||[];
+  } catch(e){
+    console.error('fetchSheet failed for', name, e);
+    throw e;
+  }
 }
 
 async function fetchAll(){
   try{
-    const [accounts,transactions,budgets,investments,goals] = await Promise.all([
-      fetchSheet('Accounts'), fetchSheet('Transactions'), fetchSheet('Budgets'),
-      fetchSheet('Investments'), fetchSheet('Goals')
-    ]);
+    toast('Loading your data…');
+    // Fetch sequentially to avoid overwhelming Apps Script
+    const accounts     = await fetchSheet('Accounts');
+    const transactions = await fetchSheet('Transactions');
+    const budgets      = await fetchSheet('Budgets');
+    const investments  = await fetchSheet('Investments');
+    const goals        = await fetchSheet('Goals');
+
     cache = {
       accounts:    accounts.map(pn(['openingBalance','currentBalance','limit'])),
       transactions:transactions.map(pn(['amount'])),
@@ -882,13 +898,27 @@ async function fetchAll(){
       investments: investments.map(pn(['amount','current','totalInvested'])),
       goals:       goals.map(pn(['target','saved']))
     };
-    saveCache(); renderAll();
-  }catch(e){ toast('Sync error – showing cached data'); }
+    saveCache();
+    renderAll();
+    toast('✓ ' + accounts.length + ' accounts, ' + transactions.length + ' transactions loaded');
+  } catch(e){
+    console.error('fetchAll error:', e);
+    toast('⚠ Sync failed: ' + e.message);
+    // Still render with cached data
+    renderAll();
+  }
 }
 
 function pn(fields){ return row=>{ const r={...row}; fields.forEach(f=>{ if(r[f]!==undefined) r[f]=parseFloat(r[f])||0; }); return r; }; }
 function saveCache(){ try{ localStorage.setItem(CACHE_KEY,JSON.stringify(cache)); }catch(e){} }
-async function refreshAll(){ toast('Syncing…'); await fetchAll(); toast('Up to date ✓'); }
+async function refreshAll(){
+  toast('Syncing…');
+  try{
+    await fetchAll();
+  } catch(e){
+    toast('⚠ Sync failed: ' + e.message);
+  }
+}
 
 // ════════════════════════════════════════════
 //  DERIVED DATA HELPERS
