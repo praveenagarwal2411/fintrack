@@ -1287,7 +1287,7 @@ async function saveInvestment(){
         category:'Investment', desc:`${name} — ${freqLabel} (catch-up)`, reconciled:'true'
       });
     });
-    // Today's / start date instalment if not already in catch-up
+    // Todays / start date instalment if not already in catch-up
     const catchupDates = Array.from(catchupBoxes).map(cb=>cb.value);
     if(!catchupDates.includes(date)){
       txnsToCreate.push({
@@ -1437,7 +1437,7 @@ function renderDash(){
   const netSaved   = tot.income - tot.expense - tot.invested;
 
   // ── HERO ──
-  const greet = mn.getHours()<12?'Good morning':'mn.getHours()<17?'Good afternoon'':'Good evening';
+  const greet = mn.getHours()<12?'Good morning':mn.getHours()<17?'Good afternoon':'Good evening';
   const nwColor = nw>=0?'#6ee7b7':'#fca5a5';
   document.getElementById('dash-hero').innerHTML=`
     <div class="dash-hero">
