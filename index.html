@@ -1803,8 +1803,9 @@ function renderTxns(){
   rows.sort((a,b)=>new Date(b.date)-new Date(a.date));
 
   // Summary bar
-  const sumInc  = rows.filter(r=>r.type==='income').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  const sumExp  = rows.filter(r=>r.type!=='income'&&r.type!=='transfer').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const viewAccId = typeof txnFilterAcc !== 'undefined' ? txnFilterAcc : 'all';
+  const sumInc  = rows.filter(r=>r.type==='income'||(r.type==='transfer'&&viewAccId!=='all'&&r.toAccountId===viewAccId)).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const sumExp  = rows.filter(r=>(r.type!=='income'&&r.type!=='transfer')||(r.type==='transfer'&&(viewAccId==='all'||r.fromAccountId===viewAccId))).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
   const sumEl   = document.getElementById('txn-summary');
   if(sumEl && rows.length){
     sumEl.innerHTML = `<div style="display:flex;gap:10px;font-size:12px;flex-wrap:wrap">
@@ -1869,10 +1870,18 @@ function txnRow(t,showDel){
   const typeClr  = isTrf?'#185FA5':isIncome?'#065f46':'#991b1b';
   const typeLabel= t.type.charAt(0).toUpperCase()+t.type.slice(1);
 
-  // Debit / Credit columns
+  // Debit / Credit logic — direction-aware for transfers
   const amt      = parseFloat(t.amount)||0;
-  const credit   = isIncome ? fmt(amt) : (isTrf ? fmt(amt) : '—');
-  const debit    = (!isIncome&&!isTrf) ? fmt(amt) : (isTrf ? '—' : '—');
+  // For transfers: if filtered to a specific account, check direction
+  // FROM that account = Debit (money going out)
+  // TO that account   = Credit (money coming in)
+  const viewingAccId = typeof txnFilterAcc !== 'undefined' ? txnFilterAcc : 'all';
+  const tfrIsDebit   = isTrf && (viewingAccId==='all' ? true : t.fromAccountId===viewingAccId);
+  const tfrIsCredit  = isTrf && (viewingAccId==='all' ? false: t.toAccountId===viewingAccId);
+
+  const showCredit = isIncome || tfrIsCredit;
+  const showDebit  = (!isIncome && !isTrf) || tfrIsDebit;
+
   const creditClr= '#10b981';
   const debitClr = '#ef4444';
 
@@ -1910,11 +1919,11 @@ function txnRow(t,showDel){
     </div>
     <!-- Credit -->
     <div style="padding:10px 8px;text-align:right;border-right:0.5px solid var(--br)">
-      ${isIncome||isTrf?`<span style="font-size:13px;font-weight:700;color:${creditClr}">${credit}</span>`:`<span style="font-size:12px;color:var(--tx3)">—</span>`}
+      ${showCredit?`<span style="font-size:13px;font-weight:700;color:${creditClr}">${fmt(amt)}</span>`:`<span style="font-size:12px;color:var(--tx3)">—</span>`}
     </div>
     <!-- Debit -->
     <div style="padding:10px 8px;text-align:right;border-right:0.5px solid var(--br)">
-      ${!isIncome&&!isTrf?`<span style="font-size:13px;font-weight:700;color:${debitClr}">${debit}</span>`:`<span style="font-size:12px;color:var(--tx3)">—</span>`}
+      ${showDebit?`<span style="font-size:13px;font-weight:700;color:${debitClr}">${fmt(amt)}</span>`:`<span style="font-size:12px;color:var(--tx3)">—</span>`}
     </div>
     <!-- Rec status -->
     <div style="padding:10px 6px;text-align:center;${showDel?'border-right:0.5px solid var(--br)':''}">
